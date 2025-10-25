@@ -51,7 +51,7 @@ python py_midi2song.py --help
 ### Elenca le porte MIDI disponibili
 
 ```bash
-py-midi2song --list-ports
+python py_midi2song.py --list-ports
 ```
 
 Esempio output:
@@ -66,7 +66,7 @@ Esempio output:
 ### Riproduci un file MIDI
 
 ```bash
-py-midi2song --midi song.mid
+python py_midi2song.py --midi song.mid
 ```
 
 ---
@@ -74,9 +74,9 @@ py-midi2song --midi song.mid
 ### Seleziona una porta specifica (per nome o indice)
 
 ```bash
-py-midi2song --midi song.mid --port "Microsoft GS"
+python py_midi2song.py --midi song.mid --port "Microsoft GS"
 # oppure
-py-midi2song --midi song.mid --port 0
+python py_midi2song.py --midi song.mid --port 0
 ```
 
 ---
@@ -84,7 +84,7 @@ py-midi2song --midi song.mid --port 0
 ### Riproduzione parziale o più lenta/veloce
 
 ```bash
-py-midi2song --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
+python py_midi2song.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 ```
 
 ---
@@ -93,10 +93,10 @@ py-midi2song --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 
 ```bash
 # Solo tracce 0 e 2
-py-midi2song --midi song.mid --tracks include:0,2
+python py_midi2song.py --midi song.mid --tracks include:0,2
 
 # Tutti i canali tranne il 9 (percussioni)
-py-midi2song --midi song.mid --channels exclude:9
+python py_midi2song.py --midi song.mid --channels exclude:9
 ```
 
 ---
@@ -105,7 +105,7 @@ py-midi2song --midi song.mid --channels exclude:9
 
 ```bash
 # Gain 0.5 => più morbido
-py-midi2song --midi song.mid --gain 0.5
+python py_midi2song.py --midi song.mid --gain 0.5
 ```
 
 ---
@@ -147,9 +147,8 @@ INFO: Riproduzione: start=0.000s
 ```
 
 In modalità debug:
-
-```bash
-py-midi2song --midi song.mid --log-level DEBUG
+```
+python py_midi2song.py --midi song.mid --log-level DEBUG
 ```
 
 ---
@@ -159,10 +158,14 @@ py-midi2song --midi song.mid --log-level DEBUG
 Struttura principale del pacchetto installabile:
 
 ```
-src/py_midi2song/
-├── __init__.py          # espone main() e __version__
-├── __main__.py          # abilita `python -m py_midi2song`
-└── cli.py               # implementazione completa della CLI
+py_midi2song.py
+├── list_output_ports()
+├── select_output_port()
+├── build_timeline()
+├── apply_filters()
+├── seek_index()
+├── play_events()
+└── main()
 ```
 
 È inoltre disponibile un wrapper di compatibilità (`py_midi2song.py`) per eseguire
@@ -196,11 +199,11 @@ class Event:
 ## 🧰 Esempi rapidi
 
 ```bash
-py-midi2song --midi test.mid
-py-midi2song --midi test.mid --tempo-scale 0.5
-py-midi2song --midi test.mid --gain 0.5
-py-midi2song --midi test.mid --start-at-seconds 10
-py-midi2song --midi test.mid --channels exclude:9
+python py_midi2song.py --midi test.mid
+python py_midi2song.py --midi test.mid --tempo-scale 0.5
+python py_midi2song.py --midi test.mid --gain 0.5
+python py_midi2song.py --midi test.mid --start-at-seconds 10
+python py_midi2song.py --midi test.mid --channels exclude:9
 ```
 
 ---
