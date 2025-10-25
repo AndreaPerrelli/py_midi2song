@@ -38,7 +38,7 @@ Su Windows è consigliato attivare o installare un sintetizzatore MIDI come:
 ### Elenca le porte MIDI disponibili
 
 ```bash
-python play_midi.py --list-ports
+python py_midi2song.py --list-ports
 ```
 
 Esempio output:
@@ -52,7 +52,7 @@ Esempio output:
 ### Riproduci un file MIDI
 
 ```bash
-python play_midi.py --midi song.mid
+python py_midi2song.py --midi song.mid
 ```
 
 ---
@@ -60,9 +60,9 @@ python play_midi.py --midi song.mid
 ### Seleziona una porta specifica (per nome o indice)
 
 ```bash
-python play_midi.py --midi song.mid --port "Microsoft GS"
+python py_midi2song.py --midi song.mid --port "Microsoft GS"
 # oppure
-python play_midi.py --midi song.mid --port 0
+python py_midi2song.py --midi song.mid --port 0
 ```
 
 ---
@@ -70,7 +70,7 @@ python play_midi.py --midi song.mid --port 0
 ### Riproduzione parziale o più lenta/veloce
 
 ```bash
-python play_midi.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
+python py_midi2song.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 ```
 
 ---
@@ -79,10 +79,10 @@ python play_midi.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 
 ```bash
 # Solo tracce 0 e 2
-python play_midi.py --midi song.mid --tracks include:0,2
+python py_midi2song.py --midi song.mid --tracks include:0,2
 
 # Tutti i canali tranne il 9 (percussioni)
-python play_midi.py --midi song.mid --channels exclude:9
+python py_midi2song.py --midi song.mid --channels exclude:9
 ```
 
 ---
@@ -91,7 +91,7 @@ python play_midi.py --midi song.mid --channels exclude:9
 
 ```bash
 # Gain 0.5 => più morbido
-python play_midi.py --midi song.mid --gain 0.5
+python py_midi2song.py --midi song.mid --gain 0.5
 ```
 
 ---
@@ -125,7 +125,7 @@ INFO: Riproduzione: start=0.000s
 
 In modalità debug:
 ```
-python play_midi.py --midi song.mid --log-level DEBUG
+python py_midi2song.py --midi song.mid --log-level DEBUG
 ```
 
 ---
@@ -134,7 +134,7 @@ python play_midi.py --midi song.mid --log-level DEBUG
 
 Struttura principale:
 ```
-play_midi.py
+py_midi2song.py
 ├── list_output_ports()
 ├── select_output_port()
 ├── build_timeline()
@@ -171,11 +171,11 @@ class Event:
 ## 🧰 Esempi rapidi
 
 ```bash
-python play_midi.py --midi test.mid
-python play_midi.py --midi test.mid --tempo-scale 0.5
-python play_midi.py --midi test.mid --gain 0.5
-python play_midi.py --midi test.mid --start-at-seconds 10
-python play_midi.py --midi test.mid --channels exclude:9
+python py_midi2song.py --midi test.mid
+python py_midi2song.py --midi test.mid --tempo-scale 0.5
+python py_midi2song.py --midi test.mid --gain 0.5
+python py_midi2song.py --midi test.mid --start-at-seconds 10
+python py_midi2song.py --midi test.mid --channels exclude:9
 ```
 
 ---
