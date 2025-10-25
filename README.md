@@ -1,6 +1,10 @@
-# 🎹 play_midi.py — Player MIDI da riga di comando (Python)
+# 🎹 py_midi2song — Player MIDI da riga di comando (Python)
 
-Un player **standalone** per file `.mid` / `.midi`, scritto in **Python 3.10+**, che utilizza le librerie `mido` e `python-rtmidi` per riprodurre eventi MIDI reali attraverso una porta MIDI OUT del sistema (es. su Windows, “Microsoft GS Wavetable Synth”).
+`py_midi2song` è un player **standalone** per file `.mid` / `.midi`, scritto in
+**Python 3.9+**, che utilizza le librerie `mido` e `python-rtmidi` per
+riprodurre eventi MIDI reali attraverso una porta MIDI OUT del sistema (es. su
+Windows, "Microsoft GS Wavetable Synth"). Il progetto è ora impacchettato come
+modulo Python installabile e fornisce un comando `py-midi2song` pronto all'uso.
 
 ---
 
@@ -12,24 +16,33 @@ Un player **standalone** per file `.mid` / `.midi`, scritto in **Python 3.10+**,
 ✅ Filtro per tracce e canali (`--tracks`, `--channels`)  
 ✅ Controllo del gain sulla velocity (`--gain`)  
 ✅ Gestione corretta delle NoteOn/NoteOff, anche in caso di interruzione (`Ctrl+C`)  
+✅ Visualizzazioni testuali opzionali (`--viz` con modalità *grid* o *lanes*)  
 ✅ Logging dettagliato (INFO / DEBUG)  
-✅ Nessuna GUI: tutto da CLI  
 ✅ Compatibile con **Windows**, **Linux** e **macOS**
 
 ---
 
 ## 📦 Installazione
 
-Assicurati di avere **Python 3.10+** installato, poi esegui:
+Assicurati di avere **Python 3.9+** installato, poi esegui:
 
 ```bash
-pip install mido python-rtmidi
+pip install py-midi2song
 ```
 
-Su Windows è consigliato attivare o installare un sintetizzatore MIDI come:
+Il pacchetto installerà automaticamente `mido` e `python-rtmidi`. Su Windows è
+consigliato attivare o installare un sintetizzatore MIDI come:
 
-- **Microsoft GS Wavetable Synth** (già incluso in Windows)  
-- Oppure un sintetizzatore virtuale come **VirtualMIDISynth** o **loopMIDI + VST**
+- **Microsoft GS Wavetable Synth** (già incluso in Windows)
+- Oppure un sintetizzatore virtuale come **VirtualMIDISynth** o
+  **loopMIDI + VST**
+
+Per chi preferisce lavorare direttamente dal codice sorgente è disponibile anche
+lo script di compatibilità:
+
+```bash
+python py_midi2song.py --help
+```
 
 ---
 
@@ -38,10 +51,11 @@ Su Windows è consigliato attivare o installare un sintetizzatore MIDI come:
 ### Elenca le porte MIDI disponibili
 
 ```bash
-python play_midi.py --list-ports
+py-midi2song --list-ports
 ```
 
 Esempio output:
+
 ```
 [0] Microsoft GS Wavetable Synth
 [1] loopMIDI Port 1
@@ -52,7 +66,7 @@ Esempio output:
 ### Riproduci un file MIDI
 
 ```bash
-python play_midi.py --midi song.mid
+py-midi2song --midi song.mid
 ```
 
 ---
@@ -60,9 +74,9 @@ python play_midi.py --midi song.mid
 ### Seleziona una porta specifica (per nome o indice)
 
 ```bash
-python play_midi.py --midi song.mid --port "Microsoft GS"
+py-midi2song --midi song.mid --port "Microsoft GS"
 # oppure
-python play_midi.py --midi song.mid --port 0
+py-midi2song --midi song.mid --port 0
 ```
 
 ---
@@ -70,7 +84,7 @@ python play_midi.py --midi song.mid --port 0
 ### Riproduzione parziale o più lenta/veloce
 
 ```bash
-python play_midi.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
+py-midi2song --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 ```
 
 ---
@@ -79,10 +93,10 @@ python play_midi.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 
 ```bash
 # Solo tracce 0 e 2
-python play_midi.py --midi song.mid --tracks include:0,2
+py-midi2song --midi song.mid --tracks include:0,2
 
 # Tutti i canali tranne il 9 (percussioni)
-python play_midi.py --midi song.mid --channels exclude:9
+py-midi2song --midi song.mid --channels exclude:9
 ```
 
 ---
@@ -91,7 +105,7 @@ python play_midi.py --midi song.mid --channels exclude:9
 
 ```bash
 # Gain 0.5 => più morbido
-python play_midi.py --midi song.mid --gain 0.5
+py-midi2song --midi song.mid --gain 0.5
 ```
 
 ---
@@ -111,12 +125,21 @@ python play_midi.py --midi song.mid --gain 0.5
 | `--channels all\|include:CSV\|exclude:CSV` | string | all | Filtra per canali MIDI (0–15) |
 | `--ignore-meta` | flag | — | Ignora meta-eventi non necessari |
 | `--log-level {INFO,DEBUG,WARNING}` | string | INFO | Livello di dettaglio log |
+| `--viz` | flag | — | Abilita la visualizzazione testuale |
+| `--viz-mode {grid,lanes}` | string | grid | Seleziona la modalità di visualizzazione |
+| `--viz-refresh-hz FLOAT` | float | 30.0 | Frequenza di aggiornamento della visualizzazione |
+| `--viz-base-note INT` | int | 60 | Nota base per *grid* e *lanes* |
+| `--viz-lanes {5,7}` | int | 7 | Numero di corsie per la modalità *lanes* |
+| `--viz-window-seconds FLOAT` | float | 4.0 | Finestra futura visualizzata nella modalità *lanes* |
+| `--viz-height INT` | int | 20 | Altezza (righe) per la modalità *lanes* |
+| `--viz-beats` | flag | — | Mostra la beat grid/metronomo nelle visualizzazioni |
 
 ---
 
 ## 🧠 Log e debug
 
 Esempio log:
+
 ```
 INFO: File: 'song.mid' | ticks_per_beat=480 | tracce=2 | eventi_canale=356 | meta=12 | durata=31.09s
 INFO: Porta selezionata (auto): Microsoft GS Wavetable Synth
@@ -124,27 +147,29 @@ INFO: Riproduzione: start=0.000s
 ```
 
 In modalità debug:
-```
-python play_midi.py --midi song.mid --log-level DEBUG
+
+```bash
+py-midi2song --midi song.mid --log-level DEBUG
 ```
 
 ---
 
 ## 🧩 Architettura del codice
 
-Struttura principale:
+Struttura principale del pacchetto installabile:
+
 ```
-play_midi.py
-├── list_output_ports()
-├── select_output_port()
-├── build_timeline()
-├── apply_filters()
-├── seek_index()
-├── play_events()
-└── main()
+src/py_midi2song/
+├── __init__.py          # espone main() e __version__
+├── __main__.py          # abilita `python -m py_midi2song`
+└── cli.py               # implementazione completa della CLI
 ```
 
+È inoltre disponibile un wrapper di compatibilità (`py_midi2song.py`) per eseguire
+la CLI direttamente dalla directory del repository senza installazione.
+
 Ogni evento MIDI è rappresentato da una dataclass:
+
 ```python
 @dataclass
 class Event:
@@ -158,35 +183,35 @@ class Event:
 
 ## ⚠️ Casi limite gestiti
 
-- File con più `set_tempo`  
-- Tracce solo meta-eventi  
-- Canale 10 (percussioni)  
-- Note sovrapposte (NoteOn/NoteOff coerenti)  
-- MIDI Type 0 e Type 1  
-- Seek a metà nota (non invia NoteOff senza NoteOn post-seek)  
-- Ctrl+C → chiusura porta + `All Notes Off`
+- File con più `set_tempo`
+- Tracce solo meta-eventi
+- Canale 10 (percussioni)
+- Note sovrapposte (NoteOn/NoteOff coerenti)
+- MIDI Type 0 e Type 1
+- Seek a metà nota (non invia NoteOff senza NoteOn post-seek)
+- `Ctrl+C` → chiusura porta + `All Notes Off`
 
 ---
 
 ## 🧰 Esempi rapidi
 
 ```bash
-python play_midi.py --midi test.mid
-python play_midi.py --midi test.mid --tempo-scale 0.5
-python play_midi.py --midi test.mid --gain 0.5
-python play_midi.py --midi test.mid --start-at-seconds 10
-python play_midi.py --midi test.mid --channels exclude:9
+py-midi2song --midi test.mid
+py-midi2song --midi test.mid --tempo-scale 0.5
+py-midi2song --midi test.mid --gain 0.5
+py-midi2song --midi test.mid --start-at-seconds 10
+py-midi2song --midi test.mid --channels exclude:9
 ```
 
 ---
 
 ## 🧩 Compatibilità
 
-- ✅ **Windows** (prioritario)  
-- ✅ **Linux**  
+- ✅ **Windows** (prioritario)
+- ✅ **Linux**
 - ✅ **macOS**
 
-Su Windows, viene selezionata automaticamente la porta  
+Su Windows, viene selezionata automaticamente la porta
 **“Microsoft GS Wavetable Synth”** se disponibile.
 
 ---
@@ -199,7 +224,7 @@ MIT License © 2025 — Autore originale: *Andrea Antonio Perrelli*
 
 ## 🧡 Contributi
 
-Pull requests e issue sono benvenuti.  
+Pull requests e issue sono benvenuti.
 Ogni miglioramento al timing, alla gestione del seek o alla compatibilità multi-porta è apprezzato.
 
 ---
