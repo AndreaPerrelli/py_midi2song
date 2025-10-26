@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "py-midi2song"
+name = "midi2song"
 version = "0.1.0"
 description = "CLI player that streams MIDI files to system MIDI OUT ports with optional text visualisations"
 readme = "README.md"
@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.scripts]
-py-midi2song = "midi2song.cli:main"
+midi2song = "midi2song.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
