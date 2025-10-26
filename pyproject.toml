@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.scripts]
-py-midi2song = "py_midi2song.cli:main"
+py-midi2song = "midi2song.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
