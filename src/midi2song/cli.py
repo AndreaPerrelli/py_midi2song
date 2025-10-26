@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Command line interface for :mod:`py_midi2song`.
+"""Command line interface for :mod:`midi2song`.
 
 The tool plays ``.mid`` / ``.midi`` files through any MIDI OUT port provided by
 the operating system, with optional real-time textual visualisations and
@@ -913,7 +913,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         level=getattr(logging, args.log_level),
         format="%(levelname)s: %(message)s"
     )
-    logger = logging.getLogger("py_midi2song")
+    logger = logging.getLogger("midi2song")
 
     # Solo elenco porte?
     if args.list_ports:

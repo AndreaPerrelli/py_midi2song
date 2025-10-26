@@ -1,4 +1,4 @@
-"""Module entry point for ``python -m py_midi2song``."""
+"""Module entry point for ``python -m midi2song``."""
 from .cli import main
 
 if __name__ == "__main__":

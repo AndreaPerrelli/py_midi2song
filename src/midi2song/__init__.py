@@ -1,4 +1,4 @@
-"""py_midi2song package."""
+"""midi2song package."""
 from .cli import main
 
 __all__ = ["main", "__version__"]

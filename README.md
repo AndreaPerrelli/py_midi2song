@@ -41,7 +41,7 @@ Per chi preferisce lavorare direttamente dal codice sorgente è disponibile anch
 lo script di compatibilità:
 
 ```bash
-python py_midi2song.py --help
+python midi2song.py --help
 ```
 
 ---
@@ -51,7 +51,7 @@ python py_midi2song.py --help
 ### Elenca le porte MIDI disponibili
 
 ```bash
-python py_midi2song.py --list-ports
+python midi2song.py --list-ports
 ```
 
 Esempio output:
@@ -66,7 +66,7 @@ Esempio output:
 ### Riproduci un file MIDI
 
 ```bash
-python py_midi2song.py --midi song.mid
+python midi2song.py --midi song.mid
 ```
 
 ---
@@ -74,9 +74,9 @@ python py_midi2song.py --midi song.mid
 ### Seleziona una porta specifica (per nome o indice)
 
 ```bash
-python py_midi2song.py --midi song.mid --port "Microsoft GS"
+python midi2song.py --midi song.mid --port "Microsoft GS"
 # oppure
-python py_midi2song.py --midi song.mid --port 0
+python midi2song.py --midi song.mid --port 0
 ```
 
 ---
@@ -84,7 +84,7 @@ python py_midi2song.py --midi song.mid --port 0
 ### Riproduzione parziale o più lenta/veloce
 
 ```bash
-python py_midi2song.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
+python midi2song.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 ```
 
 ---
@@ -93,10 +93,10 @@ python py_midi2song.py --midi song.mid --start-at-seconds 12.5 --tempo-scale 0.9
 
 ```bash
 # Solo tracce 0 e 2
-python py_midi2song.py --midi song.mid --tracks include:0,2
+python midi2song.py --midi song.mid --tracks include:0,2
 
 # Tutti i canali tranne il 9 (percussioni)
-python py_midi2song.py --midi song.mid --channels exclude:9
+python midi2song.py --midi song.mid --channels exclude:9
 ```
 
 ---
@@ -105,7 +105,7 @@ python py_midi2song.py --midi song.mid --channels exclude:9
 
 ```bash
 # Gain 0.5 => più morbido
-python py_midi2song.py --midi song.mid --gain 0.5
+python midi2song.py --midi song.mid --gain 0.5
 ```
 
 ---
@@ -199,11 +199,11 @@ class Event:
 ## 🧰 Esempi rapidi
 
 ```bash
-python py_midi2song.py --midi test.mid
-python py_midi2song.py --midi test.mid --tempo-scale 0.5
-python py_midi2song.py --midi test.mid --gain 0.5
-python py_midi2song.py --midi test.mid --start-at-seconds 10
-python py_midi2song.py --midi test.mid --channels exclude:9
+python midi2song.py --midi test.mid
+python midi2song.py --midi test.mid --tempo-scale 0.5
+python midi2song.py --midi test.mid --gain 0.5
+python midi2song.py --midi test.mid --start-at-seconds 10
+python midi2song.py --midi test.mid --channels exclude:9
 ```
 
 ---
