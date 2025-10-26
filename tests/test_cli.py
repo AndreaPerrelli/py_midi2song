@@ -62,7 +62,7 @@ def _install_mido_stub() -> None:
 
 _install_mido_stub()
 
-from py_midi2song import cli
+from midi2song import cli
 
 
 def test_parse_list_spec_variants():
