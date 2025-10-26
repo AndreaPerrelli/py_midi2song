@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/py_midi2song.iml" filepath="$PROJECT_DIR$/.idea/py_midi2song.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/midi2song.iml" filepath="$PROJECT_DIR$/.idea/midi2song.iml" />
     </modules>
   </component>
 </project>
