@@ -102,6 +102,13 @@ class NoteSegment:
     channel: int
 
 @dataclass
+class HitCircle:
+    time_s: float
+    note: int
+    channel: int
+    velocity: int
+
+@dataclass
 class TempoSeg:
     start_tick: int
     start_time_s: float
@@ -607,6 +614,27 @@ def _pair_note_segments(events: List[Event], t_end: Optional[float]) -> List[Not
     return segments
 
 
+def _collect_hit_circles(events: List[Event], t_end: Optional[float]) -> List[HitCircle]:
+    circles: List[HitCircle] = []
+    limit = t_end if t_end is not None else None
+    for ev in events:
+        if limit is not None and ev.time_s > limit:
+            break
+        msg = ev.message
+        if not isinstance(msg, mido.Message):
+            continue
+        if msg.type == 'note_on' and msg.velocity > 0 and ev.channel is not None:
+            circles.append(
+                HitCircle(
+                    time_s=ev.time_s,
+                    note=msg.note,
+                    channel=ev.channel,
+                    velocity=msg.velocity,
+                )
+            )
+    return circles
+
+
 class LanesVisualizer(threading.Thread):
     def __init__(
         self,
@@ -737,6 +765,227 @@ class LanesVisualizer(threading.Thread):
         self.term.show_cursor()
 
 
+# ========= Visualizzazione OSU-LIKE =========
+
+class OsuVisualizer(threading.Thread):
+    def __init__(
+        self,
+        term: Terminal,
+        hit_objects: List[HitCircle],
+        refresh_hz: float = 30.0,
+        approach_seconds: float = 1.5,
+        future_window: float = 3.0,
+        width: int = 38,
+        height: int = 14,
+        beatgrid: Optional[BeatGrid] = None,
+        show_beats: bool = False,
+    ):
+        super().__init__(daemon=True)
+        self.term = term
+        self.hit_objects = sorted(hit_objects, key=lambda h: h.time_s)
+        self._hit_times = [h.time_s for h in self.hit_objects]
+        self.refresh_dt = max(1.0 / max(refresh_hz, 1.0), 0.01)
+        self.approach = max(approach_seconds, 0.4)
+        self.future_window = max(future_window, self.approach)
+        self.width = max(width, 24)
+        self.height = max(height, 12)
+        self.beatgrid = beatgrid
+        self.show_beats = show_beats
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+        self._status_lines: List[str] = []
+        self._t_cur: float = 0.0
+        self._t_end: Optional[float] = None
+        self._combo: int = 0
+        self._last_hit: Optional[Tuple[int, float]] = None
+        self._flash_events: List[Tuple[float, Tuple[int, int]]] = []
+        self._flash_decay = 0.35
+        self._anchor_points = self._build_anchor_points()
+        self._shape_outer = [
+            " .o. ",
+            ".   .",
+            "o   o",
+            ".   .",
+            " .o. ",
+        ]
+        self._shape_mid = [
+            " oOo ",
+            "O   O",
+            "O   O",
+            "O   O",
+            " oOo ",
+        ]
+        self._shape_inner = [
+            "  @  ",
+            " @@@ ",
+            "@ @ @",
+            " @@@ ",
+            "  @  ",
+        ]
+        self._shape_hit = [
+            "  *  ",
+            " *** ",
+            "* * *",
+            " *** ",
+            "  *  ",
+        ]
+
+    def _build_anchor_points(self) -> List[Tuple[int, int]]:
+        w = self.width
+        h = self.height
+        candidates = [
+            (w // 4, h // 4),
+            (3 * w // 4, h // 4),
+            (w // 4, h // 2),
+            (3 * w // 4, h // 2),
+            (w // 2, h // 3),
+            (w // 5, 3 * h // 4),
+            (4 * w // 5, 3 * h // 4),
+            (w // 2, 2 * h // 3),
+            (w // 2, h // 2),
+        ]
+        clamped: List[Tuple[int, int]] = []
+        seen: Set[Tuple[int, int]] = set()
+        for x, y in candidates:
+            cx = max(2, min(w - 3, x))
+            cy = max(2, min(h - 3, y))
+            if (cx, cy) not in seen:
+                seen.add((cx, cy))
+                clamped.append((cx, cy))
+        if not clamped:
+            clamped.append((w // 2, h // 2))
+        return clamped
+
+    def _pos_for_hit(self, note: int, channel: int) -> Tuple[int, int]:
+        if not self._anchor_points:
+            return (self.width // 2, self.height // 2)
+        idx = (note + channel * 3) % len(self._anchor_points)
+        return self._anchor_points[idx]
+
+    def _blit_shape(self, board: List[List[str]], cx: int, cy: int, shape: List[str]) -> None:
+        half_h = len(shape) // 2
+        half_w = len(shape[0]) // 2 if shape else 0
+        for sy, row in enumerate(shape):
+            y = cy - half_h + sy
+            if y < 0 or y >= self.height:
+                continue
+            for sx, ch in enumerate(row):
+                if ch == " ":
+                    continue
+                x = cx - half_w + sx
+                if 0 <= x < self.width:
+                    board[y][x] = ch
+
+    def set_status(self, lines: List[str]) -> None:
+        with self._lock:
+            self._status_lines = lines[:]
+
+    def set_time_window(self, t_cur: float, t_end: Optional[float]) -> None:
+        with self._lock:
+            self._t_cur = t_cur
+            self._t_end = t_end
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def register_hit(self, note: int, channel: int, event_time: float) -> None:
+        with self._lock:
+            self._combo += 1
+            self._last_hit = (note, event_time)
+            pos = self._pos_for_hit(note, channel)
+            self._flash_events.append((event_time, pos))
+
+    def _render_to_buffer(self) -> str:
+        with self._lock:
+            status = list(self._status_lines)
+            t_cur = self._t_cur
+            t_end = self._t_end
+            combo = self._combo
+            last_hit = self._last_hit
+            flashes = [(ts, pos) for (ts, pos) in self._flash_events if t_cur - ts <= self._flash_decay]
+            self._flash_events = flashes
+
+        buf: List[str] = []
+        header = "MIDI Player :: Osu Circles (Ctrl+C per uscire)"
+        if self.show_beats and self.beatgrid is not None:
+            tbeat, dist = self.beatgrid.nearest_beat(t_cur)
+            tick = "*" if dist <= 0.07 else "."
+            import bisect
+            i = bisect.bisect_left(self.beatgrid.beat_times, tbeat)
+            count = (i % 4) + 1
+            header += f"   Beat: {tick} ({count})"
+        buf.append(header)
+        for line in status:
+            buf.append(line)
+        if t_end:
+            width = 50
+            pos = int(max(0.0, min(1.0, t_cur / t_end)) * width)
+            buf.append("Tempo: [" + "#" * pos + "-" * (width - pos) + f"]  t={t_cur:6.2f}s")
+        else:
+            buf.append(f"Tempo: t = {t_cur:.2f}s")
+        if combo > 0:
+            buf.append(f"Combo: {combo}" + (f"  Last note: {last_hit[0]}" if last_hit else ""))
+        else:
+            buf.append("Combo: 0")
+        buf.append("")
+
+        board = [[" " for _ in range(self.width)] for _ in range(self.height)]
+        import bisect
+        lower = t_cur - self._flash_decay
+        upper = t_cur + max(self.future_window, self.approach)
+        i0 = bisect.bisect_left(self._hit_times, lower)
+        i1 = bisect.bisect_right(self._hit_times, upper)
+        upcoming: List[str] = []
+
+        for hit in self.hit_objects[i0:i1]:
+            dt = hit.time_s - t_cur
+            if dt < -self._flash_decay:
+                continue
+            cx, cy = self._pos_for_hit(hit.note, hit.channel)
+            if dt >= 0:
+                ratio = min(1.0, dt / self.approach)
+                if ratio > 0.66:
+                    shape = self._shape_outer
+                elif ratio > 0.33:
+                    shape = self._shape_mid
+                else:
+                    shape = self._shape_inner
+                self._blit_shape(board, cx, cy, shape)
+                if dt <= self.future_window:
+                    upcoming.append(f"{hit.note}@{dt:+.2f}s")
+            else:
+                self._blit_shape(board, cx, cy, self._shape_hit)
+
+        for ts, (cx, cy) in flashes:
+            if self._flash_decay - (t_cur - ts) >= 0:
+                self._blit_shape(board, cx, cy, self._shape_hit)
+
+        border = "+" + "-" * self.width + "+"
+        buf.append("  " + border)
+        for row in board:
+            buf.append("  |" + "".join(row) + "|")
+        buf.append("  " + border)
+
+        if upcoming:
+            buf.append("")
+            buf.append("Prossime note: " + ", ".join(upcoming[:6]))
+
+        buf.append("")
+        return "\n".join(buf)
+
+    def run(self) -> None:
+        self.term.hide_cursor()
+        self.term.clear_full()
+        last_draw = 0.0
+        while not self._stop.is_set():
+            now = time.monotonic()
+            if now - last_draw >= self.refresh_dt:
+                self.term.draw(self._render_to_buffer())
+                last_draw = now
+            time.sleep(0.005)
+        self.term.clear_full()
+        self.term.show_cursor()
+
 # ========= Riproduzione =========
 
 def _clamp_velocity(vel: int, gain: float) -> int:
@@ -784,6 +1033,7 @@ def play_events(
     logger: logging.Logger,
     grid_visual: Optional[GridVisualizer] = None,
     lanes_visual: Optional[LanesVisualizer] = None,
+    osu_visual: Optional[OsuVisualizer] = None,
 ) -> None:
     active_notes: Dict[Tuple[int, int], bool] = {}
     used_channels: Set[int] = set()
@@ -812,6 +1062,8 @@ def play_events(
                 grid_visual.set_time_window(target_rel + t_start, t_end if t_end is not None else None)
             if lanes_visual is not None:
                 lanes_visual.set_time_window(target_rel + t_start, t_end if t_end is not None else None)
+            if osu_visual is not None:
+                osu_visual.set_time_window(target_rel + t_start, t_end if t_end is not None else None)
 
             _sleep_until(target_abs)
 
@@ -838,6 +1090,8 @@ def play_events(
                     active_notes[(msg.channel, msg.note)] = True
                     if grid_visual is not None:
                         grid_visual.update_active_note(msg.note, True)
+                    if osu_visual is not None:
+                        osu_visual.register_hit(msg.note, msg.channel, ev.time_s)
             elif mtype == 'note_off':
                 used_channels.add(msg.channel)
                 key = (msg.channel, msg.note)
@@ -894,7 +1148,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Visualizzazione comune
     parser.add_argument("--viz", action="store_true", help="Abilita la visualizzazione in console.")
-    parser.add_argument("--viz-mode", choices=["grid", "lanes"], default="grid", help="Tipo di visualizzazione.")
+    parser.add_argument("--viz-mode", choices=["grid", "lanes", "osu"], default="grid", help="Tipo di visualizzazione.")
     parser.add_argument("--viz-refresh-hz", type=float, default=30.0, help="Frequenza refresh visualizzazione (Hz).")
     parser.add_argument("--viz-beats", action="store_true", help="Mostra metronomo / beat grid.")
 
@@ -905,6 +1159,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--viz-lanes", type=int, choices=[5, 7], default=7, help="Numero lane per 'lanes'.")
     parser.add_argument("--viz-window-seconds", type=float, default=4.0, help="Finestra futura (s) in 'lanes'.")
     parser.add_argument("--viz-height", type=int, default=20, help="Altezza righe in 'lanes'.")
+    parser.add_argument("--viz-osu-approach", type=float, default=1.5, help="Durata (s) dell'approach circle nella modalita 'osu'.")
+    parser.add_argument("--viz-osu-future", type=float, default=3.0, help="Finestra futura (s) visualizzata nella modalita 'osu'.")
+    parser.add_argument("--viz-osu-width", type=int, default=38, help="Larghezza campo ASCII per la modalita 'osu'.")
+    parser.add_argument("--viz-osu-height", type=int, default=14, help="Altezza campo ASCII per la modalita 'osu'.")
 
     args = parser.parse_args(argv)
 
@@ -995,6 +1253,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     term = Terminal()
     grid_visual: Optional[GridVisualizer] = None
     lanes_visual: Optional[LanesVisualizer] = None
+    osu_visual: Optional[OsuVisualizer] = None
 
     if args.viz:
         if args.viz_mode == "grid":
@@ -1008,7 +1267,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             grid_visual.set_status(status)
             grid_visual.set_time_window(t_start, t_end if t_end is not None else None)
             grid_visual.start()
-        else:
+        elif args.viz_mode == "lanes":
             segments = _pair_note_segments(events_f, t_end)
             lanes_visual = LanesVisualizer(
                 term=term,
@@ -1030,6 +1289,28 @@ def main(argv: Optional[List[str]] = None) -> int:
             lanes_visual.set_status(status)
             lanes_visual.set_time_window(t_start, t_end if t_end is not None else None)
             lanes_visual.start()
+        else:
+            circles = _collect_hit_circles(events_f, t_end)
+            osu_visual = OsuVisualizer(
+                term=term,
+                hit_objects=circles,
+                refresh_hz=float(args.viz_refresh_hz),
+                approach_seconds=float(args.viz_osu_approach),
+                future_window=float(args.viz_osu_future),
+                width=int(args.viz_osu_width),
+                height=int(args.viz_osu_height),
+                beatgrid=beatgrid,
+                show_beats=args.viz_beats,
+            )
+            status = [
+                f"Porta: {out.name}",
+                f"Cerchi: {len(circles)} | future={args.viz_osu_future}s | approach={args.viz_osu_approach}s",
+                f"Campo: {args.viz_osu_width}x{args.viz_osu_height}",
+                f"Durata: {duration:.2f}s",
+            ]
+            osu_visual.set_status(status)
+            osu_visual.set_time_window(t_start, t_end if t_end is not None else None)
+            osu_visual.start()
 
     # Riproduci
     try:
@@ -1044,6 +1325,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             logger=logger,
             grid_visual=grid_visual,
             lanes_visual=lanes_visual,
+            osu_visual=osu_visual,
         )
     except Exception as e:
         logging.error("Errore durante la riproduzione: %s", e)
@@ -1059,6 +1341,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         if lanes_visual is not None:
             lanes_visual.stop()
             lanes_visual.join(timeout=1.0)
+        if osu_visual is not None:
+            osu_visual.stop()
+            osu_visual.join(timeout=1.0)
         term.show_cursor()
 
     return 0
